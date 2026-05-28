@@ -19,6 +19,7 @@ The objective is to ensure requirements clarity, design alignment, and governanc
 - `docs/architecture/`: system design, constraints, and technical decisions.
 - `docs/api-contracts/`: API-first contracts, schemas, and interface versioning.
 - `docs/ai-engineering-rules/`: standards for safe, reliable AI-assisted engineering.
+- `docs/observability/`: observability architecture and monitoring foundations.
 - `infrastructure/`: infrastructure-as-code strategy and environment blueprint.
 - `.github/workflows/`: CI/CD workflow definitions and policy checks.
 

@@ -10,6 +10,7 @@ The `docs/` directory is the primary source of truth for product and technical i
 - `architecture/`: system design, technical constraints, and decision rationale.
 - `api-contracts/`: interface definitions and contract governance.
 - `ai-engineering-rules/`: AI-assisted engineering standards and controls.
+- `observability/`: foundational standards for logging, tracing, health, and monitoring.
 
 ## Usage Expectations
 
@@ -43,6 +44,13 @@ The `docs/` directory is the primary source of truth for product and technical i
 ## AI Engineering Rules
 
 - docs/ai-engineering-rules/
+
+## Observability
+
+- docs/observability/observability-architecture.md
+- docs/observability/logging-standards.md
+- docs/observability/monitoring-strategy.md
+- docs/observability/health-check-guidance.md
 
 ## Documentation Governance
 
