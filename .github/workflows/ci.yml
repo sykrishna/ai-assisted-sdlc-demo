@@ -2,40 +2,89 @@ name: CI
 
 on:
   pull_request:
+    branches:
+      - main
   push:
     branches:
       - main
 
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TURBO_TELEMETRY_DISABLED: '1'
+
 jobs:
-  validate:
+  metadata:
     runs-on: ubuntu-latest
+    outputs:
+      turbo_filter: ${{ steps.filter.outputs.turbo_filter }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve Turbo filter
+        id: filter
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE_SHA="${{ github.event.before }}"
+          fi
+
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" == "0000000000000000000000000000000000000000" ]]; then
+            echo "turbo_filter=" >> "$GITHUB_OUTPUT"
+          else
+            echo "turbo_filter=...[$BASE_SHA]" >> "$GITHUB_OUTPUT"
+          fi
+
+  validate:
+    needs: metadata
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        task: [lint, typecheck, test, build]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 9.12.0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 20.20.2
           cache: pnpm
+
+      - name: Cache Turbo artifacts
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.ref_name }}-${{ hashFiles('pnpm-lock.yaml', 'turbo.json') }}
+          restore-keys: |
+            turbo-${{ runner.os }}-${{ github.ref_name }}-
+            turbo-${{ runner.os }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Lint
-        run: pnpm lint
-
-      - name: Typecheck
-        run: pnpm typecheck
-
-      - name: Test
-        run: pnpm test
-
-      - name: Build
-        run: pnpm build
+      - name: Run Turbo task
+        shell: bash
+        run: |
+          if [[ -n "${{ needs.metadata.outputs.turbo_filter }}" ]]; then
+            pnpm turbo run ${{ matrix.task }} --filter="${{ needs.metadata.outputs.turbo_filter }}"
+          else
+            pnpm turbo run ${{ matrix.task }}
+          fi

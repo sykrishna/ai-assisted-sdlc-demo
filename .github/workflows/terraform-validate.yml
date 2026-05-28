@@ -1,0 +1,40 @@
+name: Terraform Validate
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - infrastructure/**
+      - .github/workflows/terraform-validate.yml
+  workflow_dispatch:
+
+concurrency:
+  group: terraform-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        environment: [dev, staging, production]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.7.5
+
+      - name: Terraform format check
+        run: terraform fmt -check -recursive infrastructure
+
+      - name: Terraform init (no backend)
+        run: terraform -chdir=infrastructure/environments/${{ matrix.environment }} init -backend=false
+
+      - name: Terraform validate
+        run: terraform -chdir=infrastructure/environments/${{ matrix.environment }} validate
