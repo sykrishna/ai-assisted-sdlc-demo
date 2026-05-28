@@ -4,3 +4,10 @@ node_modules
 dist
 coverage
 .env
+.env.local
+.env.*.local
+.turbo
+*.tsbuildinfo
+npm-debug.log
+yarn-error.log
+pnpm-debug.log

@@ -47,3 +47,11 @@ This initialization intentionally includes no application code. Only foundationa
 - Define architecture decision records (ADRs) and non-functional requirements.
 - Add API schema standards and versioning strategy.
 - Introduce delivery pipelines with compliance checks.
+
+## Local Development and Docker
+
+- Standard guide: [docs/implementation/local-development-environment.md](docs/implementation/local-development-environment.md)
+- Prerequisite check: `pnpm doctor`
+- One-command setup: `pnpm setup`
+- Host-native development: `pnpm dev`
+- Container development with orchestration: `pnpm docker:up`

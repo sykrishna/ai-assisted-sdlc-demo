@@ -8,11 +8,21 @@
     "pnpm": ">=9.0.0"
   },
   "scripts": {
+    "bootstrap": "node scripts/bootstrap.mjs",
+    "setup": "node scripts/setup-local.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "env:validate": "node scripts/validate-env.mjs --mode=local",
+    "env:validate:ci": "node scripts/validate-env.mjs --mode=ci",
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
+    "dev:web": "pnpm --filter @repo/web dev",
+    "dev:api": "pnpm --filter @repo/api dev",
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
+    "docker:up": "docker compose up --build",
+    "docker:down": "docker compose down --remove-orphans",
+    "docker:logs": "docker compose logs -f --tail=100",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "prepare": "husky"

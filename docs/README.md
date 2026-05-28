@@ -20,22 +20,30 @@ The `docs/` directory is the primary source of truth for product and technical i
 # Documentation Index
 
 ## Product Specifications
+
 - docs/product-specs/
 
 ## Architecture
+
 - docs/architecture/
 
 ## API Contracts
+
 - docs/api-contracts/
 
 ## Implementation Planning
+
 - docs/implementation/
+- docs/implementation/local-development-environment.md
 
 ## Templates
+
 - docs/templates/
 
 ## AI Engineering Rules
+
 - docs/ai-engineering-rules/
 
 ## Documentation Governance
+
 - docs/documentation-structure-guide.md

@@ -1,26 +1,71 @@
-version: '3.9'
 services:
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+    init: true
+    working_dir: /workspace
+    command: pnpm --filter @repo/web dev
+    tty: true
+    stdin_open: true
     ports:
       - '3000:3000'
+    env_file:
+      - .env
     environment:
-      - NEXT_PUBLIC_API_BASE_URL=http://api:3001
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
+      WATCHPACK_POLLING: 'true'
+      CHOKIDAR_USEPOLLING: 'true'
+    volumes:
+      - ./:/workspace
+      - pnpm-store:/pnpm/store
+      - workspace-node-modules:/workspace/node_modules
+      - web-node-modules:/workspace/apps/web/node_modules
+      - shared-types-node-modules:/workspace/packages/shared-types/node_modules
+      - shared-utils-node-modules:/workspace/packages/shared-utils/node_modules
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3000 >/dev/null || exit 1']
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
 
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    init: true
+    working_dir: /workspace
+    command: pnpm --filter @repo/api dev
+    tty: true
+    stdin_open: true
     ports:
       - '3001:3001'
+    env_file:
+      - .env
     environment:
-      - API_PORT=3001
-      - API_PREFIX=api
-      - JWT_ISSUER=ai-assisted-sdlc-demo
-      - JWT_AUDIENCE=web-client
-      - JWT_ACCESS_TOKEN_TTL_SECONDS=900
-      - JWT_REFRESH_TOKEN_TTL_SECONDS=1209600
+      CHOKIDAR_USEPOLLING: 'true'
+    volumes:
+      - ./:/workspace
+      - pnpm-store:/pnpm/store
+      - workspace-node-modules:/workspace/node_modules
+      - api-node-modules:/workspace/apps/api/node_modules
+      - shared-types-node-modules:/workspace/packages/shared-types/node_modules
+      - shared-utils-node-modules:/workspace/packages/shared-utils/node_modules
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:3001/api/v1/health >/dev/null || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 15s
+
+volumes:
+  pnpm-store:
+  workspace-node-modules:
+  web-node-modules:
+  api-node-modules:
+  shared-types-node-modules:
+  shared-utils-node-modules:

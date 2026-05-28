@@ -7,10 +7,12 @@
 
 ## Quickstart
 
-1. Enable corepack: `corepack enable`
-2. Install dependencies: `pnpm install`
-3. Install git hooks: `pnpm prepare`
-4. Start apps: `pnpm dev`
+1. Verify local tooling: `pnpm doctor`
+2. Run setup flow: `pnpm setup`
+3. Start host workflows: `pnpm dev`
+4. Or start container workflow: `pnpm docker:up`
+
+See [docs/implementation/local-development-environment.md](docs/implementation/local-development-environment.md) for full standards, environment strategy, troubleshooting, and Docker guidance.
 
 ## Scope
 
