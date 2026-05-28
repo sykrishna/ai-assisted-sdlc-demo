@@ -1,0 +1,612 @@
+openapi: 3.0.3
+info:
+  title: Authentication API
+  version: 1.0.0
+  description: |
+    REST API contract for authentication in a cloud-native TypeScript web/PWA system.
+    Supports login, logout, refresh token rotation, and current session validation.
+servers:
+  - url: https://api.example.com
+    description: Production
+  - url: https://staging-api.example.com
+    description: Staging
+tags:
+  - name: Authentication
+    description: Authentication and session lifecycle endpoints
+paths:
+  /api/v1/auth/login:
+    post:
+      tags: [Authentication]
+      operationId: authLogin
+      summary: Authenticate user and issue tokens
+      description: |
+        Validates credentials and returns short-lived JWT access token plus refresh token.
+      x-rateLimit:
+        policy: login-default
+        limits:
+          - key: identifier
+            requestsPerMinute: 5
+          - key: ipFingerprint
+            requestsPerMinute: 30
+      x-observabilityEvents:
+        - auth.login.attempt
+        - auth.login.success
+        - auth.login.failure
+        - auth.login.rate_limited
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationIdHeader'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Invalid credentials
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationIdHeader'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                invalidCredentials:
+                  value:
+                    type: https://api.example.com/errors/auth-invalid-credentials
+                    title: Invalid credentials
+                    status: 401
+                    code: AUTH_INVALID_CREDENTIALS
+                    detail: Authentication failed.
+                    correlationId: 7da8d8f9-9dcf-4c80-b32b-f40f9ea2d201
+                    timestamp: 2026-05-28T10:15:30Z
+                    retryable: false
+        '423':
+          description: Account locked
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationIdHeader'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/DependencyUnavailable'
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      operationId: authLogout
+      summary: Revoke active session or session family
+      description: |
+        Revokes session state associated with the authenticated principal.
+        This operation is idempotent by outcome semantics.
+      security:
+        - bearerAuth: []
+      x-rateLimit:
+        policy: logout-default
+        limits:
+          - key: subject
+            requestsPerMinute: 60
+      x-observabilityEvents:
+        - auth.logout.requested
+        - auth.logout.completed
+        - auth.logout.denied
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LogoutRequest'
+      responses:
+        '200':
+          description: Logout completed
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationIdHeader'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LogoutResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/auth/refresh:
+    post:
+      tags: [Authentication]
+      operationId: authRefresh
+      summary: Rotate refresh token and issue new access token
+      description: |
+        Exchanges a valid refresh token for a new access token and refresh token.
+        Replay detection revokes the token family.
+      x-rateLimit:
+        policy: refresh-default
+        limits:
+          - key: session
+            requestsPerMinute: 30
+      x-observabilityEvents:
+        - auth.refresh.attempt
+        - auth.refresh.success
+        - auth.refresh.failure
+        - auth.refresh.replay_detected
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshRequest'
+      responses:
+        '200':
+          description: Token refresh successful
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationIdHeader'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          description: Refresh token invalid/expired/revoked
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationIdHeader'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                refreshInvalid:
+                  value:
+                    type: https://api.example.com/errors/auth-refresh-invalid
+                    title: Refresh token invalid
+                    status: 401
+                    code: AUTH_REFRESH_INVALID
+                    detail: Refresh token is invalid or expired.
+                    correlationId: 79d2f088-a8c3-4b2f-8495-f9a450630db7
+                    timestamp: 2026-05-28T10:18:20Z
+                    retryable: false
+        '409':
+          description: Refresh replay detected
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationIdHeader'
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              examples:
+                replayDetected:
+                  value:
+                    type: https://api.example.com/errors/auth-refresh-replay-detected
+                    title: Refresh replay detected
+                    status: 409
+                    code: AUTH_REFRESH_REPLAY_DETECTED
+                    detail: Token replay detected and session revoked.
+                    correlationId: b790f8ea-7158-4970-a782-815573ef9ab2
+                    timestamp: 2026-05-28T10:18:23Z
+                    retryable: false
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/DependencyUnavailable'
+  /api/v1/auth/session:
+    get:
+      tags: [Authentication]
+      operationId: authSession
+      summary: Validate current user/session
+      description: |
+        Validates the current access token and returns role-ready user/session context.
+      security:
+        - bearerAuth: []
+      x-rateLimit:
+        policy: session-default
+        limits:
+          - key: subject
+            requestsPerMinute: 120
+      x-observabilityEvents:
+        - auth.session.checked
+        - auth.session.invalid
+      responses:
+        '200':
+          description: Session valid
+          headers:
+            X-Correlation-Id:
+              $ref: '#/components/headers/CorrelationIdHeader'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SessionResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    refreshTokenCookie:
+      type: apiKey
+      in: cookie
+      name: refresh_token
+  headers:
+    CorrelationIdHeader:
+      description: Correlation identifier for distributed tracing and auditability.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+  schemas:
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [identifier, password]
+      properties:
+        identifier:
+          type: string
+          minLength: 3
+          maxLength: 254
+          description: Username or email identifier.
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          format: password
+        deviceContext:
+          type: object
+          additionalProperties: false
+          properties:
+            deviceId:
+              type: string
+              maxLength: 128
+            userAgent:
+              type: string
+              maxLength: 512
+            ipHint:
+              type: string
+              maxLength: 64
+    TokenBundle:
+      type: object
+      additionalProperties: false
+      required:
+        - accessToken
+        - accessTokenExpiresIn
+        - refreshToken
+        - refreshTokenExpiresIn
+        - tokenType
+      properties:
+        accessToken:
+          type: string
+          description: JWT access token.
+        accessTokenExpiresIn:
+          type: integer
+          minimum: 1
+          maximum: 3600
+        refreshToken:
+          type: string
+          description: Rotating refresh token.
+        refreshTokenExpiresIn:
+          type: integer
+          minimum: 60
+        tokenType:
+          type: string
+          enum: [Bearer]
+    UserSummary:
+      type: object
+      additionalProperties: false
+      required: [userId, displayName, roles]
+      properties:
+        userId:
+          type: string
+          minLength: 1
+          maxLength: 128
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 256
+        roles:
+          type: array
+          description: Role-ready authorization claims.
+          items:
+            type: string
+            minLength: 1
+            maxLength: 64
+    SessionSummary:
+      type: object
+      additionalProperties: false
+      required: [sessionId, issuedAt, expiresAt]
+      properties:
+        sessionId:
+          type: string
+          minLength: 8
+          maxLength: 128
+        issuedAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+    LoginResponse:
+      type: object
+      additionalProperties: false
+      required: [accessToken, accessTokenExpiresIn, refreshToken, refreshTokenExpiresIn, tokenType, session, user]
+      properties:
+        accessToken:
+          type: string
+        accessTokenExpiresIn:
+          type: integer
+          minimum: 1
+          maximum: 3600
+        refreshToken:
+          type: string
+        refreshTokenExpiresIn:
+          type: integer
+          minimum: 60
+        tokenType:
+          type: string
+          enum: [Bearer]
+        session:
+          $ref: '#/components/schemas/SessionSummary'
+        user:
+          $ref: '#/components/schemas/UserSummary'
+    LogoutRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        sessionId:
+          type: string
+          minLength: 8
+          maxLength: 128
+        allSessions:
+          type: boolean
+          default: false
+    LogoutResponse:
+      type: object
+      additionalProperties: false
+      required: [revoked, revokedSessionCount, message]
+      properties:
+        revoked:
+          type: boolean
+        revokedSessionCount:
+          type: integer
+          minimum: 0
+        message:
+          type: string
+          maxLength: 256
+    RefreshRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        refreshToken:
+          type: string
+          minLength: 16
+        sessionId:
+          type: string
+          minLength: 8
+          maxLength: 128
+      required: [refreshToken]
+      description: refreshToken may be policy-provided via secure HttpOnly cookie.
+    RefreshResponse:
+      type: object
+      additionalProperties: false
+      required: [accessToken, accessTokenExpiresIn, refreshToken, refreshTokenExpiresIn, tokenType, session]
+      properties:
+        accessToken:
+          type: string
+        accessTokenExpiresIn:
+          type: integer
+          minimum: 1
+          maximum: 3600
+        refreshToken:
+          type: string
+        refreshTokenExpiresIn:
+          type: integer
+          minimum: 60
+        tokenType:
+          type: string
+          enum: [Bearer]
+        session:
+          $ref: '#/components/schemas/SessionSummary'
+    SessionResponse:
+      type: object
+      additionalProperties: false
+      required: [authenticated, user, session, token]
+      properties:
+        authenticated:
+          type: boolean
+          enum: [true]
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        session:
+          $ref: '#/components/schemas/SessionSummary'
+        token:
+          type: object
+          additionalProperties: false
+          required: [expiresAt, issuer, audience]
+          properties:
+            expiresAt:
+              type: string
+              format: date-time
+            issuer:
+              type: string
+            audience:
+              type: string
+    Problem:
+      type: object
+      additionalProperties: false
+      required: [type, title, status, code, detail, correlationId, timestamp, retryable]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+          maxLength: 128
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+          pattern: '^[A-Z0-9_]+$'
+        detail:
+          type: string
+          maxLength: 1024
+        correlationId:
+          type: string
+          minLength: 8
+          maxLength: 128
+        timestamp:
+          type: string
+          format: date-time
+        retryable:
+          type: boolean
+  responses:
+    BadRequest:
+      description: Request validation failed
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationIdHeader'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            invalidRequest:
+              value:
+                type: https://api.example.com/errors/auth-invalid-request
+                title: Invalid request
+                status: 400
+                code: AUTH_INVALID_REQUEST
+                detail: One or more fields failed validation.
+                correlationId: 48207bb0-1e67-4d45-83f5-25ec5fb820f8
+                timestamp: 2026-05-28T10:22:30Z
+                retryable: false
+    Unauthorized:
+      description: Missing or invalid authentication
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationIdHeader'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            unauthorized:
+              value:
+                type: https://api.example.com/errors/auth-unauthorized
+                title: Unauthorized
+                status: 401
+                code: AUTH_UNAUTHORIZED
+                detail: Authentication is required or token is invalid.
+                correlationId: 09a8703f-71e4-44dc-9d7c-2e8cbe75f7d0
+                timestamp: 2026-05-28T10:23:13Z
+                retryable: false
+    Forbidden:
+      description: Authenticated but not permitted
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationIdHeader'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            forbidden:
+              value:
+                type: https://api.example.com/errors/auth-forbidden
+                title: Forbidden
+                status: 403
+                code: AUTH_FORBIDDEN
+                detail: The requested action is not permitted.
+                correlationId: 89e5e292-bc73-4399-b274-5af757f1ef79
+                timestamp: 2026-05-28T10:23:43Z
+                retryable: false
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationIdHeader'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            throttled:
+              value:
+                type: https://api.example.com/errors/auth-rate-limited
+                title: Too many requests
+                status: 429
+                code: AUTH_RATE_LIMITED
+                detail: Retry after backoff.
+                correlationId: 87b434e5-f7e4-4f5b-a2bf-c2f9ab6ef9e1
+                timestamp: 2026-05-28T10:24:05Z
+                retryable: true
+    InternalError:
+      description: Unexpected internal failure
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationIdHeader'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            internalError:
+              value:
+                type: https://api.example.com/errors/auth-internal-error
+                title: Internal error
+                status: 500
+                code: AUTH_INTERNAL_ERROR
+                detail: Unexpected server error.
+                correlationId: 34d05f88-c56f-436c-82b1-aa419c5fd30f
+                timestamp: 2026-05-28T10:24:22Z
+                retryable: true
+    DependencyUnavailable:
+      description: Required dependency unavailable
+      headers:
+        X-Correlation-Id:
+          $ref: '#/components/headers/CorrelationIdHeader'
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          examples:
+            dependencyUnavailable:
+              value:
+                type: https://api.example.com/errors/auth-dependency-unavailable
+                title: Dependency unavailable
+                status: 503
+                code: AUTH_DEPENDENCY_UNAVAILABLE
+                detail: Authentication dependency is temporarily unavailable.
+                correlationId: 67212d95-9566-4297-a6bd-8839ed585719
+                timestamp: 2026-05-28T10:24:45Z
+                retryable: true
+security: []
