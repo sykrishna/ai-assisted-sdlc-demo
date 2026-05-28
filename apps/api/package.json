@@ -27,6 +27,7 @@
     "@nestjs/cli": "latest",
     "@nestjs/testing": "latest",
     "@types/express": "^5.0.6",
+    "@types/jest": "^30.0.0",
     "ts-jest": "latest",
     "ts-node": "latest"
   }

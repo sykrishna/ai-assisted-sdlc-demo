@@ -1,46 +1,40 @@
-import type { TestingModule } from '@nestjs/testing';
-import { Test } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
+import type { AuthService } from './auth.service';
 
 describe('AuthController', () => {
   let controller: AuthController;
+  let authService: AuthService;
 
-  const authService = {
-    login: jest.fn(),
-    logout: jest.fn(),
-    refresh: jest.fn(),
-    getSession: jest.fn(),
-  };
+  beforeEach(() => {
+    authService = {
+      login: jest.fn(),
+      logout: jest.fn(),
+      refresh: jest.fn(),
+      getSession: jest.fn(),
+    } as unknown as AuthService;
 
-  beforeEach(async () => {
-    const module: TestingModule = await Test.createTestingModule({
-      controllers: [AuthController],
-      providers: [
-        {
-          provide: AuthService,
-          useValue: authService,
-        },
-      ],
-    }).compile();
-
-    controller = module.get<AuthController>(AuthController);
-    jest.clearAllMocks();
+    controller = new AuthController(authService);
   });
 
   it('should delegate login to AuthService', () => {
-    const result = { tokenType: 'Bearer' };
-    authService.login.mockReturnValue(result);
+    const result = {
+      tokenType: 'Bearer',
+      accessToken: 'test',
+      refreshToken: 'test',
+      user: { roles: ['user'] },
+      session: { sessionId: 'test', issuedAt: new Date(), expiresAt: new Date() },
+    };
+    (authService.login as jest.Mock).mockReturnValue(result);
 
-    expect(
-      controller.login(
-        {
-          identifier: 'alice@example.com',
-          password: 'password123',
-        },
-        'corr-1',
-      ),
-    ).toEqual(result);
+    const response = controller.login(
+      {
+        identifier: 'alice@example.com',
+        password: 'password123',
+      },
+      'corr-1',
+    );
+
+    expect(response).toEqual(result);
     expect(authService.login).toHaveBeenCalled();
   });
 });

@@ -1,13 +1,16 @@
-import type { Config } from 'jest';
-
-const config: Config = {
+export default {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.(t|j)s$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          types: ['jest', 'node'],
+        },
+      },
+    ],
   },
   testEnvironment: 'node',
 };
-
-export default config;
