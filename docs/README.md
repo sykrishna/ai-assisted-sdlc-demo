@@ -16,3 +16,26 @@ The `docs/` directory is the primary source of truth for product and technical i
 - Documents should be versioned and reviewed through pull requests.
 - Significant changes should include rationale, impact, and reviewer sign-off.
 - Future implementation work should cite source documents for traceability.
+
+# Documentation Index
+
+## Product Specifications
+- docs/product-specs/
+
+## Architecture
+- docs/architecture/
+
+## API Contracts
+- docs/api-contracts/
+
+## Implementation Planning
+- docs/implementation/
+
+## Templates
+- docs/templates/
+
+## AI Engineering Rules
+- docs/ai-engineering-rules/
+
+## Documentation Governance
+- docs/documentation-structure-guide.md
