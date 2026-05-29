@@ -2,8 +2,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { ConfigType } from '@nestjs/config';
 import { randomUUID } from 'node:crypto';
 import { AppException } from '../common/http/app-exception';
-import type { StructuredLoggerService } from '../common/logging/structured-logger.service';
+import { StructuredLoggerService } from '../common/logging/structured-logger.service';
 import { authConfig } from './config/auth.config';
+import { JwtTokenService } from './services/jwt-token.service';
 import {
   type LoginRequestDto,
   type LoginResponseDto,
@@ -19,7 +20,10 @@ export class AuthService {
   constructor(
     @Inject(authConfig.KEY)
     private readonly config: ConfigType<typeof authConfig>,
+    @Inject(StructuredLoggerService)
     private readonly logger: StructuredLoggerService,
+    @Inject(JwtTokenService)
+    private readonly jwtTokenService: JwtTokenService,
   ) {}
 
   login(request: LoginRequestDto, correlationId: string): LoginResponseDto {
@@ -30,19 +34,32 @@ export class AuthService {
     });
 
     // TODO(auth-phase-1): integrate credential verification and account lockout policy.
-    // TODO(auth-phase-1): mint real JWT access token and rotating refresh token.
     // TODO(auth-phase-2): include authoritative RBAC roles sourced from identity provider.
 
+    const userId = 'placeholder-user-id'; // TODO: get from identity provider
     const session = this.buildSession();
+
+    // Generate real JWT tokens
+    const accessToken = this.jwtTokenService.generateAccessToken(
+      userId,
+      session.sessionId,
+      correlationId,
+    );
+    const refreshToken = this.jwtTokenService.generateRefreshToken(
+      userId,
+      session.sessionId,
+      correlationId,
+    );
+
     const response: LoginResponseDto = {
-      accessToken: 'todo-access-token',
+      accessToken,
       accessTokenExpiresIn: this.config.accessTokenTtlSeconds,
-      refreshToken: 'todo-refresh-token',
+      refreshToken,
       refreshTokenExpiresIn: this.config.refreshTokenTtlSeconds,
       tokenType: 'Bearer',
       session,
       user: {
-        userId: 'todo-user-id',
+        userId,
         displayName: 'Placeholder User',
         roles: ['user'],
       },
@@ -62,7 +79,19 @@ export class AuthService {
     authorizationHeader: string | undefined,
     correlationId: string,
   ): LogoutResponseDto {
-    this.requireAuthorizationHeader(authorizationHeader, correlationId);
+    const token = this.requireAuthorizationHeader(authorizationHeader, correlationId);
+
+    // Validate access token to get session ID
+    const payload = this.jwtTokenService.validateAccessToken(token, correlationId);
+    if (!payload) {
+      throw new AppException({
+        status: 401,
+        code: 'AUTH_INVALID_TOKEN',
+        title: 'Unauthorized',
+        detail: 'Invalid or expired access token.',
+        retryable: false,
+      });
+    }
 
     this.logger.info('auth.logout.requested', {
       correlationId,
@@ -70,13 +99,22 @@ export class AuthService {
       requestedSessionId: request.sessionId,
     });
 
-    // TODO(auth-phase-1): revoke session in persistence store and enforce idempotency.
+    // Revoke tokens
+    let revokedCount = 0;
+    if (request.allSessions) {
+      revokedCount = this.jwtTokenService.revokeSessionTokens(payload.sessionId, correlationId);
+    } else {
+      this.jwtTokenService.revokeRefreshToken(payload.jti, correlationId);
+      revokedCount = 1;
+    }
+
+    // TODO(auth-phase-2): persist revocations to database for multi-instance support.
     // TODO(auth-phase-2): support admin-initiated revocation with RBAC guards.
 
     const response: LogoutResponseDto = {
       revoked: true,
-      revokedSessionCount: request.allSessions ? 3 : 1,
-      message: 'Logout accepted for placeholder auth implementation.',
+      revokedSessionCount: revokedCount,
+      message: 'Logout completed successfully.',
     };
 
     this.logger.info('auth.logout.completed', {
@@ -93,14 +131,39 @@ export class AuthService {
       hasSessionId: Boolean(request.sessionId),
     });
 
-    // TODO(auth-phase-1): validate refresh token, rotate token family, detect replay.
-    // TODO(auth-phase-1): persist refresh session metadata and emit audit event.
+    // Validate refresh token
+    const payload = this.jwtTokenService.validateRefreshToken(request.refreshToken, correlationId);
+    if (!payload) {
+      throw new AppException({
+        status: 401,
+        code: 'AUTH_INVALID_REFRESH_TOKEN',
+        title: 'Unauthorized',
+        detail: 'Invalid or revoked refresh token.',
+        retryable: false,
+      });
+    }
+
+    // TODO(auth-phase-2): implement token family rotation to detect replay attacks.
+    // TODO(auth-phase-2): persist refresh session metadata and emit audit event.
 
     const session = this.buildSession();
+
+    // Generate new token pair
+    const accessToken = this.jwtTokenService.generateAccessToken(
+      payload.sub,
+      session.sessionId,
+      correlationId,
+    );
+    const refreshToken = this.jwtTokenService.generateRefreshToken(
+      payload.sub,
+      session.sessionId,
+      correlationId,
+    );
+
     const response: RefreshResponseDto = {
-      accessToken: 'todo-rotated-access-token',
+      accessToken,
       accessTokenExpiresIn: this.config.accessTokenTtlSeconds,
-      refreshToken: 'todo-rotated-refresh-token',
+      refreshToken,
       refreshTokenExpiresIn: this.config.refreshTokenTtlSeconds,
       tokenType: 'Bearer',
       session,
@@ -115,30 +178,40 @@ export class AuthService {
   }
 
   getSession(authorizationHeader: string | undefined, correlationId: string): SessionResponseDto {
-    this.requireAuthorizationHeader(authorizationHeader, correlationId);
+    const token = this.requireAuthorizationHeader(authorizationHeader, correlationId);
 
-    // TODO(auth-phase-1): validate JWT signature/claims and session status.
+    // Validate access token
+    const payload = this.jwtTokenService.validateAccessToken(token, correlationId);
+    if (!payload) {
+      throw new AppException({
+        status: 401,
+        code: 'AUTH_INVALID_TOKEN',
+        title: 'Unauthorized',
+        detail: 'Invalid or expired access token.',
+        retryable: false,
+      });
+    }
+
     // TODO(auth-phase-2): enrich response with dynamic RBAC context from policy service.
 
-    const session = this.buildSession();
     const response: SessionResponseDto = {
       authenticated: true,
       user: {
-        userId: 'todo-user-id',
+        userId: payload.sub,
         displayName: 'Placeholder User',
         roles: ['user'],
       },
-      session,
+      session: this.buildSession(),
       token: {
-        expiresAt: session.expiresAt,
-        issuer: this.config.issuer,
-        audience: this.config.audience,
+        expiresAt: new Date(payload.exp * 1000).toISOString(),
+        issuer: payload.iss,
+        audience: payload.aud,
       },
     };
 
     this.logger.info('auth.session.checked', {
       correlationId,
-      sessionId: session.sessionId,
+      sessionId: response.session.sessionId,
       userId: response.user.userId,
     });
 
@@ -159,21 +232,21 @@ export class AuthService {
   private requireAuthorizationHeader(
     authorizationHeader: string | undefined,
     correlationId: string,
-  ): void {
-    if (authorizationHeader && authorizationHeader.startsWith('Bearer ')) {
-      return;
+  ): string {
+    if (!authorizationHeader || !authorizationHeader.startsWith('Bearer ')) {
+      this.logger.warn('auth.authorization.missing_or_invalid', {
+        correlationId,
+      });
+
+      throw new AppException({
+        status: 401,
+        code: 'AUTH_UNAUTHORIZED',
+        title: 'Unauthorized',
+        detail: 'Missing or invalid bearer token.',
+        retryable: false,
+      });
     }
 
-    this.logger.warn('auth.authorization.missing_or_invalid', {
-      correlationId,
-    });
-
-    throw new AppException({
-      status: 401,
-      code: 'AUTH_UNAUTHORIZED',
-      title: 'Unauthorized',
-      detail: 'Missing or invalid bearer token.',
-      retryable: false,
-    });
+    return authorizationHeader.substring('Bearer '.length);
   }
 }

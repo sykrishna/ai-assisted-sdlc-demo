@@ -14,12 +14,15 @@
     "@nestjs/common": "latest",
     "@nestjs/config": "latest",
     "@nestjs/core": "latest",
+    "@nestjs/jwt": "^11.0.2",
+    "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "latest",
     "@nestjs/swagger": "^11.4.4",
     "@repo/shared-types": "workspace:*",
     "@repo/shared-utils": "workspace:*",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "passport-jwt": "^4.0.1",
     "reflect-metadata": "latest",
     "rxjs": "latest"
   },
@@ -28,6 +31,7 @@
     "@nestjs/testing": "latest",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
+    "@types/passport-jwt": "^4.0.1",
     "ts-jest": "latest",
     "ts-node": "latest"
   }
