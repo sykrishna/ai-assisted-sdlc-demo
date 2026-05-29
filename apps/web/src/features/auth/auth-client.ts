@@ -1,5 +1,6 @@
 import { apiRequest } from '../../lib/http/api-client';
 import type {
+  HealthStatusResponse,
   LoginRequest,
   LoginResponse,
   LogoutRequest,
@@ -12,6 +13,13 @@ import type {
 const AUTH_BASE_PATH = '/api/v1/auth';
 
 export const authClient = {
+  getHealth() {
+    return apiRequest<HealthStatusResponse>({
+      method: 'GET',
+      path: '/api/health',
+    });
+  },
+
   getSession(accessToken: string) {
     return apiRequest<SessionResponse>({
       accessToken,

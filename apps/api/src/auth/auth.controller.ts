@@ -10,7 +10,6 @@ import {
 } from '@nestjs/swagger';
 import { CorrelationId } from '../common/http/correlation-id.decorator';
 import { AuthService } from './auth.service';
-import type { LoginRequestDto, LogoutRequestDto, RefreshRequestDto } from './dto';
 import {
   LoginResponseDto,
   LogoutResponseDto,
@@ -18,6 +17,8 @@ import {
   RefreshResponseDto,
   SessionResponseDto,
 } from './dto';
+// eslint-disable-next-line @typescript-eslint/consistent-type-imports
+import { LoginRequestDto, LogoutRequestDto, RefreshRequestDto } from './dto';
 
 @ApiTags('Authentication')
 @ApiHeader({

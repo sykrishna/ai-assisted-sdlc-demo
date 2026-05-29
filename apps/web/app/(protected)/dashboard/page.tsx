@@ -1,9 +1,71 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useAuth } from '../../../src/features/auth/auth-context';
+import { authClient } from '../../../src/features/auth/auth-client';
+import type { HealthStatusResponse } from '../../../src/features/auth/auth-types';
+
+let cachedHealthResponse: HealthStatusResponse | null = null;
+let inflightHealthRequest: Promise<HealthStatusResponse> | null = null;
+
+function getFallbackHealthStatus(): HealthStatusResponse {
+  return {
+    dependencies: {
+      auth: {
+        detail: 'Readiness check unavailable.',
+        status: 'degraded',
+      },
+    },
+    service: 'api',
+    status: 'degraded',
+    timestamp: new Date().toISOString(),
+  };
+}
+
+async function loadHealthStatus(): Promise<HealthStatusResponse> {
+  if (cachedHealthResponse) {
+    return cachedHealthResponse;
+  }
+
+  if (!inflightHealthRequest) {
+    inflightHealthRequest = authClient
+      .getHealth()
+      .then((response) => {
+        cachedHealthResponse = response;
+        return response;
+      })
+      .catch(() => getFallbackHealthStatus())
+      .finally(() => {
+        inflightHealthRequest = null;
+      });
+  }
+
+  return inflightHealthRequest;
+}
 
 export default function DashboardPage() {
   const { error, isRefreshing, logout, session, status, user } = useAuth();
+  const [health, setHealth] = useState<HealthStatusResponse | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadHealthStatus()
+      .then((response) => {
+        if (!cancelled) {
+          setHealth(response);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setHealth(getFallbackHealthStatus());
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-6 py-12 sm:px-8">
@@ -64,7 +126,10 @@ export default function DashboardPage() {
             <h2 className="text-lg font-semibold text-slate-950">Operational readiness</h2>
             <ul className="mt-4 space-y-3 text-sm text-slate-600">
               <li>Session restore runs on load, reconnect, and app resume.</li>
-              <li>Refresh scheduling is prepared without persisting refresh tokens client-side.</li>
+              <li>
+                Refresh scheduling is wired through the backend proxy without client-side refresh
+                persistence.
+              </li>
               <li>Client logging is correlation-aware and avoids sensitive auth payloads.</li>
               <li>Role claims are available for future route- and feature-level checks.</li>
             </ul>
@@ -82,6 +147,15 @@ export default function DashboardPage() {
                 {error}
               </p>
             ) : null}
+            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-600">
+              <p className="font-medium text-slate-900">Backend readiness</p>
+              <p className="mt-2">
+                Auth dependency: {health?.dependencies.auth.status ?? 'checking'}
+              </p>
+              <p className="mt-1">
+                {health?.dependencies.auth.detail ?? 'Waiting for readiness signal from the API.'}
+              </p>
+            </div>
           </section>
         </aside>
       </section>

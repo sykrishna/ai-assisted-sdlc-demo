@@ -1,5 +1,6 @@
 import { createCorrelationId } from './correlation-id';
 import { logFrontendEvent } from '../observability/frontend-logger';
+import type { ProblemDetails } from '../../features/auth/auth-types';
 
 type ApiRequestOptions = {
   accessToken?: string;
@@ -8,17 +9,6 @@ type ApiRequestOptions = {
   method?: 'GET' | 'POST';
   path: string;
   signal?: AbortSignal;
-};
-
-type ProblemDetails = {
-  code: string;
-  correlationId: string;
-  detail: string;
-  retryable: boolean;
-  status: number;
-  timestamp: string;
-  title: string;
-  type: string;
 };
 
 export class ApiError extends Error {
@@ -42,6 +32,28 @@ async function parseResponseBody<T>(response: Response): Promise<T> {
   }
 
   return (await response.json()) as T;
+}
+
+async function parseProblemDetails(
+  response: Response,
+  correlationId: string,
+): Promise<ProblemDetails> {
+  const contentType = response.headers.get('content-type') ?? '';
+
+  if (contentType.includes('application/json')) {
+    return parseResponseBody<ProblemDetails>(response);
+  }
+
+  return {
+    code: 'HTTP_ERROR',
+    correlationId,
+    detail: 'Request failed.',
+    retryable: response.status >= 500,
+    status: response.status,
+    timestamp: new Date().toISOString(),
+    title: 'Request Failed',
+    type: 'https://example.com/problems/http-error',
+  };
 }
 
 export async function apiRequest<T>({
@@ -72,7 +84,10 @@ export async function apiRequest<T>({
   const durationMs = Math.round(performance.now() - startedAt);
 
   if (!response.ok) {
-    const problem = await parseResponseBody<ProblemDetails>(response);
+    const problem = await parseProblemDetails(
+      response,
+      response.headers.get('x-correlation-id') ?? correlationId,
+    );
     logFrontendEvent('warn', 'auth.api.failure', {
       code: problem.code,
       correlationId: problem.correlationId,

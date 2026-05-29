@@ -104,8 +104,7 @@ export class AuthService {
     if (request.allSessions) {
       revokedCount = this.jwtTokenService.revokeSessionTokens(payload.sessionId, correlationId);
     } else {
-      this.jwtTokenService.revokeRefreshToken(payload.jti, correlationId);
-      revokedCount = 1;
+      revokedCount = this.jwtTokenService.revokeSessionTokens(payload.sessionId, correlationId);
     }
 
     // TODO(auth-phase-2): persist revocations to database for multi-instance support.

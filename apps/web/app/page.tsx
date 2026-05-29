@@ -27,7 +27,7 @@ export default function HomePage() {
             <li>Credential login form with generic auth failures.</li>
             <li>HttpOnly-cookie-compatible session restoration flow.</li>
             <li>Protected dashboard shell with centralized logout.</li>
-            <li>Refresh orchestration hooks prepared for backend integration.</li>
+            <li>Backend JWT integration with refresh orchestration and readiness checks.</li>
           </ul>
         </div>
 
@@ -35,7 +35,7 @@ export default function HomePage() {
           <div className="space-y-2">
             <h2 className="text-lg font-semibold text-slate-900">Get started</h2>
             <p className="text-sm text-slate-600">
-              Use the demo login flow to exercise the mock contract-backed session lifecycle.
+              Use the demo login flow to exercise the backend-authenticated session lifecycle.
             </p>
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">

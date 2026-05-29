@@ -16,6 +16,31 @@ export type AuthTokenMetadata = {
   issuer: string;
 };
 
+export type ProblemDetails = {
+  code: string;
+  correlationId: string;
+  detail: string;
+  retryable: boolean;
+  status: number;
+  timestamp: string;
+  title: string;
+  type: string;
+};
+
+export type HealthDependencyStatus = {
+  detail?: string;
+  status: 'degraded' | 'ok';
+};
+
+export type HealthStatusResponse = {
+  dependencies: {
+    auth: HealthDependencyStatus;
+  };
+  service: string;
+  status: 'degraded' | 'ok';
+  timestamp: string;
+};
+
 export type LoginRequest = {
   deviceContext?: {
     deviceId?: string;

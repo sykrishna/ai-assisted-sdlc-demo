@@ -106,7 +106,7 @@ describe('AuthService', () => {
       const response = service.logout({}, 'Bearer valid-access-token', 'corr-1');
 
       expect(response.revoked).toBe(true);
-      expect(jwtTokenService.revokeRefreshToken).toHaveBeenCalled();
+      expect(jwtTokenService.revokeSessionTokens).toHaveBeenCalledWith('session-456', 'corr-1');
     });
 
     it('should support logout all sessions', () => {

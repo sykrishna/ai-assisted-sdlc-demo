@@ -5,7 +5,7 @@ services:
       dockerfile: apps/web/Dockerfile
     init: true
     working_dir: /workspace
-    command: pnpm --filter @repo/web dev
+    command: sh -c "rm -rf apps/web/.next && pnpm install --frozen-lockfile && pnpm --filter @repo/web exec next dev --webpack --hostname 0.0.0.0 --port 3000"
     tty: true
     stdin_open: true
     ports:
@@ -13,6 +13,7 @@ services:
     env_file:
       - .env
     environment:
+      API_INTERNAL_BASE_URL: http://api:3001
       NEXT_PUBLIC_API_BASE_URL: http://localhost:3001
       WATCHPACK_POLLING: 'true'
       CHOKIDAR_USEPOLLING: 'true'
@@ -39,7 +40,7 @@ services:
       dockerfile: apps/api/Dockerfile
     init: true
     working_dir: /workspace
-    command: pnpm --filter @repo/api dev
+    command: sh -c "pnpm install --frozen-lockfile && pnpm --filter @repo/api dev"
     tty: true
     stdin_open: true
     ports:

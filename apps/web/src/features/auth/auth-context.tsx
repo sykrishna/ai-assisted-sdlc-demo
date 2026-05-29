@@ -128,8 +128,18 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
 }
 
 function getErrorMessage(error: unknown, fallbackMessage: string): string {
-  if (error instanceof ApiError && error.status === 401) {
-    return fallbackMessage;
+  if (error instanceof ApiError) {
+    if (error.status === 429) {
+      return 'Authentication is temporarily unavailable. Please try again shortly.';
+    }
+
+    if (error.status >= 500 || error.code === 'AUTH_DEPENDENCY_UNAVAILABLE') {
+      return 'Authentication is temporarily unavailable. Please try again later.';
+    }
+
+    if (error.status === 401 || error.status === 403 || error.status === 409) {
+      return fallbackMessage;
+    }
   }
 
   if (error instanceof Error) {
@@ -166,6 +176,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const refreshTimerRef = useRef<number | null>(null);
   const inflightRefreshRef = useRef<Promise<void> | null>(null);
   const explicitLogoutRef = useRef(false);
+  const hasRestoredSessionRef = useRef(false);
 
   const applyAuthenticatedState = useCallback((session: AuthenticatedSession) => {
     inMemoryAccessToken = session.accessToken;
@@ -275,6 +286,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [applyAuthenticatedState, refreshSession]);
 
   useEffect(() => {
+    if (hasRestoredSessionRef.current) {
+      return;
+    }
+
+    hasRestoredSessionRef.current = true;
     void restoreSession();
   }, [restoreSession]);
 

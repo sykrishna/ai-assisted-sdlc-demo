@@ -1,10 +1,15 @@
 import { NextResponse } from 'next/server';
 import { AUTH_REFRESH_COOKIE_NAME } from '../../../../../src/features/auth/auth-constants';
+import type { LogoutResponse } from '../../../../../src/features/auth/auth-types';
 import {
   clearRefreshCookie,
-  createLogoutResponse,
-  getProblemDetails,
-} from '../../../../../src/features/auth/server/mock-auth-server';
+  createBackendUnavailableProblem,
+  extractCorrelationHeaders,
+  parseBackendProblem,
+  proxyAuthRequest,
+  logAuthProxyEvent,
+  prepareAuthMetric,
+} from '../../../../../src/features/auth/server/backend-auth-proxy';
 
 function extractAccessToken(headerValue: string | null): string | undefined {
   if (!headerValue?.startsWith('Bearer ')) {
@@ -15,7 +20,13 @@ function extractAccessToken(headerValue: string | null): string | undefined {
 }
 
 export async function POST(request: Request) {
+  const correlation = extractCorrelationHeaders(request);
+
   try {
+    const body = (await request.json()) as {
+      allSessions?: boolean;
+      sessionId?: string;
+    };
     const cookieHeader = request.headers.get('cookie') ?? '';
     const requestCookies = new Map(
       cookieHeader
@@ -27,19 +38,36 @@ export async function POST(request: Request) {
           return [name, value.join('=')];
         }),
     );
-    const response = NextResponse.json(
-      createLogoutResponse(
-        extractAccessToken(request.headers.get('authorization')),
-        requestCookies.get(AUTH_REFRESH_COOKIE_NAME),
-      ),
-      { status: 200 },
-    );
+    const result = await proxyAuthRequest<LogoutResponse>({
+      accessToken: extractAccessToken(request.headers.get('authorization')),
+      body,
+      correlation,
+      endpoint: '/api/v1/auth/logout',
+      method: 'POST',
+    });
+
+    const response = NextResponse.json(result.body, { status: result.status });
     response.cookies.set(clearRefreshCookie());
+    logAuthProxyEvent('info', 'auth.proxy.logout.completed', {
+      correlationId: result.correlationId,
+      hadRefreshCookie: Boolean(requestCookies.get(AUTH_REFRESH_COOKIE_NAME)),
+      statusCode: result.status,
+    });
+    prepareAuthMetric('auth.logout.success', { status: 'success' });
     return response;
   } catch (error) {
-    const problem = getProblemDetails(error);
+    const problem = parseBackendProblem(
+      error,
+      createBackendUnavailableProblem(correlation.correlationId),
+    );
     const response = NextResponse.json(problem, { status: problem.status });
     response.cookies.set(clearRefreshCookie());
+    logAuthProxyEvent('warn', 'auth.proxy.logout.failed', {
+      code: problem.code,
+      correlationId: problem.correlationId,
+      statusCode: problem.status,
+    });
+    prepareAuthMetric('auth.logout.failure', { code: problem.code, status: 'failure' });
     return response;
   }
 }
