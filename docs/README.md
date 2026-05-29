@@ -27,6 +27,7 @@ The `docs/` directory is the primary source of truth for product and technical i
 ## Architecture
 
 - docs/architecture/
+- docs/architecture/aws-production-readiness-architecture.md
 
 ## API Contracts
 
@@ -35,6 +36,8 @@ The `docs/` directory is the primary source of truth for product and technical i
 ## Implementation Planning
 
 - docs/implementation/
+- docs/implementation/aws-deployment-workflow.md
+- docs/implementation/aws-environment-promotion-strategy.md
 - docs/implementation/local-development-environment.md
 
 ## Templates

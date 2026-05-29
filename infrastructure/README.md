@@ -13,6 +13,7 @@ Provide an enterprise-grade, cloud-native Terraform scaffold for multi-environme
 - `modules/security-baseline/`: Reusable security guardrail module placeholder.
 - `modules/observability-baseline/`: Reusable telemetry/monitoring baseline placeholder.
 - `modules/compute-baseline/`: Reusable compute baseline placeholder.
+- `organization-guidance.md`: Recommended module, state, and ownership organization for AWS production evolution.
 - `backend.tf`: Remote state backend declaration placeholder.
 - `providers.tf`: AWS provider configuration with default tags.
 - `locals.tf`: Shared tag strategy for consistent governance.
