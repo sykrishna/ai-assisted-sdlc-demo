@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpCode, Post } from '@nestjs/common';
+import { Body, Controller, Get, Headers, HttpCode, Inject, Post } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -9,7 +9,7 @@ import {
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
 import { CorrelationId } from '../common/http/correlation-id.decorator';
-import type { AuthService } from './auth.service';
+import { AuthService } from './auth.service';
 import type { LoginRequestDto, LogoutRequestDto, RefreshRequestDto } from './dto';
 import {
   LoginResponseDto,
@@ -27,7 +27,7 @@ import {
 })
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(@Inject(AuthService) private readonly authService: AuthService) {}
 
   @Post('login')
   @HttpCode(200)
