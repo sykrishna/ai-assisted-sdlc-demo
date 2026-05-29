@@ -6,7 +6,7 @@
     "allowJs": false,
     "incremental": true,
     "ignoreDeprecations": "6.0",
-    "types": ["node"]
+    "types": ["node", "jest"]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

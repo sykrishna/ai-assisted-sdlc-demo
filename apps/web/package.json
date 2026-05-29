@@ -24,6 +24,7 @@
     "autoprefixer": "latest",
     "jest-environment-jsdom": "latest",
     "postcss": "latest",
-    "tailwindcss": "latest"
+    "tailwindcss": "latest",
+    "ts-jest": "latest"
   }
 }

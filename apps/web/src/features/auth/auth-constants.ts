@@ -1,0 +1,4 @@
+export const AUTH_REFRESH_COOKIE_NAME = 'web_refresh_token';
+export const ACCESS_TOKEN_REFRESH_WINDOW_MS = 60_000;
+export const ACCESS_TOKEN_MIN_REFRESH_DELAY_MS = 5_000;
+export const SESSION_RESTORE_BACKOFF_MS = 15_000;
